@@ -44,7 +44,7 @@ jobs:
 
             - name: Run Ansible playbook
               run: |
-                  version=`cat environments/${{ github.event.inputs.environment }}.json | jq -r .configuration.app`
+                  version=`curl -s https://raw.githubusercontent.com/pezzu/scc-envs/refs/heads/main/${{ github.event.inputs.environment }}.json | jq -r .configuration.app`
                   ansible-playbook deploy/deploy.yaml --extra-vars "version=$version enviro_name=$environment"
 
               env:
