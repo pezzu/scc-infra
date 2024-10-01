@@ -1,0 +1,51 @@
+name: Deploy
+
+on:
+    workflow_dispatch:
+        inputs:
+            environment:
+                description: "Environment to deploy to"
+                required: true
+                default: "QA92-05"
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: us-east-1
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: lowercase Environment
+              run: echo "environment=${{ github.event.inputs.environment }}" | tr '[:upper:]' '[:lower:]' >> "${GITHUB_ENV}"
+
+            - name: Deploy CloudFormation stack
+              run: |
+
+                  aws cloudformation deploy \
+                    --template-file deploy/aws.yaml \
+                    --stack-name scc-app-cloudformation-stack-${environment} \
+                    --parameter-overrides \
+                        Environment=$environment \
+                    --capabilities CAPABILITY_NAMED_IAM
+
+            - name: Set up Python 3.
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.x"
+
+            - name: Install ansible dependencies
+              run: pip3 install ansible boto3 botocore jq
+
+            - name: Run Ansible playbook
+              run: |
+                  version=`cat environments/${{ github.event.inputs.environment }}.json | jq -r .configuration.app`
+                  ansible-playbook deploy/deploy.yaml --extra-vars "version=$version enviro_name=$environment"
+
+              env:
+                  RUNNER_TEMP: ${{ runner.temp }}
